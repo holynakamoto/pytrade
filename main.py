@@ -192,6 +192,7 @@ def run_backtest(config: dict, logger):
         ])
 
         output_path = './output/backtest_trades.csv'
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
         trades_df.to_csv(output_path, index=False)
         logger.info(f"\nTrade history saved to {output_path}")
 

@@ -87,16 +87,14 @@ class TechnicalIndicators:
             DataFrame with VWAP column added
         """
         # Typical price
-        df['typical_price'] = (df['high'] + df['low'] + df['close']) / 3
+        typical_price = (df['high'] + df['low'] + df['close']) / 3
 
-        # Cumulative for each session (daily in our case)
-        df['vwap'] = (df['typical_price'] * df['volume']).cumsum() / df['volume'].cumsum()
+        # Cumulative numerator and denominator
+        cum_tp_vol = (typical_price * df['volume']).cumsum()
+        cum_vol = df['volume'].cumsum()
 
-        # For daily timeframe, we can also calculate session VWAP differently
-        # Here we're using a simple cumulative approach
-        # For intraday, you'd reset at session boundaries
-
-        df.drop('typical_price', axis=1, inplace=True)
+        # Calculate VWAP with zero-volume protection
+        df['vwap'] = cum_tp_vol.div(cum_vol).where(cum_vol > 0, pd.NA)
 
         return df
 
