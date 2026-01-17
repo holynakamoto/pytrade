@@ -38,7 +38,8 @@ class DataFetcher:
         symbol: str,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        use_cache: bool = True
+        use_cache: bool = True,
+        interval: str = '1d'
     ) -> pd.DataFrame:
         """
         Fetch OHLCV data for a symbol.
@@ -48,14 +49,16 @@ class DataFetcher:
             start_date: Start date (YYYY-MM-DD)
             end_date: End date (YYYY-MM-DD)
             use_cache: Whether to use cached data
+            interval: Timeframe interval (3m, 15m, 1h, 4h, 1d)
 
         Returns:
             DataFrame with OHLCV data
         """
-        # Check cache first
-        if use_cache and symbol in self._cache:
-            logger.debug(f"Using cached data for {symbol}")
-            df = self._cache[symbol].copy()
+        # Check cache first (with interval-specific key)
+        cache_key = f"{symbol}_{interval}"
+        if use_cache and cache_key in self._cache:
+            logger.debug(f"Using cached data for {symbol} {interval}")
+            df = self._cache[cache_key].copy()
             if start_date:
                 df = df[df.index >= start_date]
             if end_date:
@@ -71,10 +74,10 @@ class DataFetcher:
 
         # Try primary source
         try:
-            df = self._fetch_from_source(symbol, start_date, end_date, self.primary_source)
+            df = self._fetch_from_source(symbol, start_date, end_date, self.primary_source, interval)
             if df is not None and not df.empty:
-                self._cache[symbol] = df
-                logger.info(f"Successfully fetched {len(df)} bars for {symbol} from {self.primary_source}")
+                self._cache[cache_key] = df
+                logger.info(f"Successfully fetched {len(df)} bars for {symbol} {interval} from {self.primary_source}")
                 return df
         except Exception as e:
             logger.error(f"Error fetching from {self.primary_source}: {e}")
@@ -82,16 +85,16 @@ class DataFetcher:
         # Fallback to Yahoo Finance if primary fails
         if self.primary_source != 'yahoo':
             try:
-                logger.warning(f"Falling back to Yahoo Finance for {symbol}")
-                df = self._fetch_from_yahoo(symbol, start_date, end_date)
+                logger.warning(f"Falling back to Yahoo Finance for {symbol} {interval}")
+                df = self._fetch_from_yahoo(symbol, start_date, end_date, interval)
                 if df is not None and not df.empty:
-                    self._cache[symbol] = df
+                    self._cache[cache_key] = df
                     return df
             except Exception as e:
                 logger.error(f"Yahoo Finance fallback failed: {e}")
 
         # Return empty DataFrame if all sources fail
-        logger.error(f"Failed to fetch data for {symbol} from all sources")
+        logger.error(f"Failed to fetch data for {symbol} {interval} from all sources")
         return pd.DataFrame()
 
     def _fetch_from_source(
@@ -99,11 +102,12 @@ class DataFetcher:
         symbol: str,
         start_date: str,
         end_date: str,
-        source: str
+        source: str,
+        interval: str = '1d'
     ) -> Optional[pd.DataFrame]:
         """Route to the appropriate data source."""
         if source == 'yahoo':
-            return self._fetch_from_yahoo(symbol, start_date, end_date)
+            return self._fetch_from_yahoo(symbol, start_date, end_date, interval)
         elif source == 'polygon':
             return self._fetch_from_polygon(symbol, start_date, end_date)
         elif source == 'alphavantage':
@@ -115,12 +119,39 @@ class DataFetcher:
         self,
         symbol: str,
         start_date: str,
-        end_date: str
+        end_date: str,
+        interval: str = '1d'
     ) -> pd.DataFrame:
         """Fetch data from Yahoo Finance."""
         try:
+            # Map our intervals to yfinance intervals
+            yf_interval = interval
+            if interval == '3m':
+                yf_interval = '2m'  # yfinance uses 2m, we'll use it for 3m
+            elif interval == '4h':
+                yf_interval = '1h'  # Will resample 1h to 4h later
+
             ticker = yf.Ticker(symbol)
-            df = ticker.history(start=start_date, end=end_date, auto_adjust=True)
+
+            # For intraday intervals, adjust date range (yfinance limits)
+            if interval in ['2m', '3m', '5m', '15m', '30m']:
+                # Intraday data limited to last 60 days
+                df = ticker.history(period='60d', interval=yf_interval, auto_adjust=True)
+            elif interval in ['1h', '4h']:
+                # Hourly data limited to last 730 days
+                df = ticker.history(period='730d', interval=yf_interval, auto_adjust=True)
+            else:
+                df = ticker.history(start=start_date, end=end_date, interval=yf_interval, auto_adjust=True)
+
+            # Resample 1h to 4h if needed
+            if interval == '4h' and not df.empty:
+                df = df.resample('4H').agg({
+                    'open': 'first',
+                    'high': 'max',
+                    'low': 'min',
+                    'close': 'last',
+                    'volume': 'sum'
+                }).dropna()
 
             # Standardize column names
             df.columns = [col.lower() for col in df.columns]
@@ -243,7 +274,8 @@ class DataFetcher:
         self,
         symbols: List[str],
         start_date: Optional[str] = None,
-        end_date: Optional[str] = None
+        end_date: Optional[str] = None,
+        interval: str = '1d'
     ) -> Dict[str, pd.DataFrame]:
         """
         Fetch data for multiple symbols.
@@ -252,6 +284,7 @@ class DataFetcher:
             symbols: List of symbols
             start_date: Start date (YYYY-MM-DD)
             end_date: End date (YYYY-MM-DD)
+            interval: Timeframe interval (3m, 15m, 1h, 4h, 1d)
 
         Returns:
             Dictionary mapping symbols to DataFrames
@@ -260,12 +293,47 @@ class DataFetcher:
 
         for symbol in symbols:
             try:
-                df = self.fetch_data(symbol, start_date, end_date)
+                df = self.fetch_data(symbol, start_date, end_date, interval=interval)
                 if not df.empty:
                     results[symbol] = df
             except Exception as e:
-                logger.error(f"Failed to fetch {symbol}: {e}")
+                logger.error(f"Failed to fetch {symbol} {interval}: {e}")
                 continue
+
+        return results
+
+    def fetch_multiple_timeframes(
+        self,
+        symbols: List[str],
+        timeframes: List[str],
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> Dict[str, Dict[str, pd.DataFrame]]:
+        """
+        Fetch data for multiple symbols across multiple timeframes.
+
+        Args:
+            symbols: List of symbols
+            timeframes: List of timeframe intervals (e.g., ['3m', '15m', '1h', '4h', '1d'])
+            start_date: Start date (YYYY-MM-DD)
+            end_date: End date (YYYY-MM-DD)
+
+        Returns:
+            Nested dictionary: {symbol: {timeframe: DataFrame}}
+        """
+        results = {}
+
+        for symbol in symbols:
+            results[symbol] = {}
+            for timeframe in timeframes:
+                try:
+                    df = self.fetch_data(symbol, start_date, end_date, interval=timeframe)
+                    if not df.empty:
+                        results[symbol][timeframe] = df
+                        logger.info(f"Fetched {len(df)} bars for {symbol} {timeframe}")
+                except Exception as e:
+                    logger.error(f"Failed to fetch {symbol} {timeframe}: {e}")
+                    continue
 
         return results
 
