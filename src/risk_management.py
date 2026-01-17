@@ -62,7 +62,7 @@ class RiskManager:
         # Calculate position size
         position_size = int(dollar_risk / risk_per_share)
 
-        return max(position_size, 1)  # At least 1 share
+        return position_size  # Allow 0 if risk is too small
 
     def calculate_take_profits(
         self,

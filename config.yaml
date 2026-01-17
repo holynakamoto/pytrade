@@ -6,11 +6,18 @@ data_source:
   polygon_api_key: ""  # Set via environment variable POLYGON_API_KEY
   alphavantage_api_key: ""  # Set via environment variable ALPHAVANTAGE_API_KEY
   cache_days: 500  # Number of historical bars to cache
+  timeframes:  # Multiple timeframes to analyze
+    - "3m"   # 3 minute
+    - "15m"  # 15 minute
+    - "1h"   # 1 hour
+    - "4h"   # 4 hour (not directly supported by yfinance, will use 1h and resample)
+    - "1d"   # Daily
 
 # Trading Universe
 symbols:
   - "SPY"  # S&P 500 ETF
   - "QQQ"  # Nasdaq ETF
+  - "IWM"  # Russell 2000 ETF
   - "AAPL"
   - "MSFT"
   - "GOOGL"

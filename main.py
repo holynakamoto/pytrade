@@ -71,55 +71,66 @@ def generate_daily_signals(config: dict, logger) -> pd.DataFrame:
     signal_gen = SignalGenerator(config)
     risk_mgr = RiskManager(config)
 
-    # Fetch data for all symbols
+    # Get timeframes and symbols from config
     symbols = config['symbols']
-    logger.info(f"Fetching data for {len(symbols)} symbols...")
+    timeframes = config['data_source'].get('timeframes', ['1d'])
+    logger.info(f"Fetching data for {len(symbols)} symbols across {len(timeframes)} timeframes...")
 
-    data_dict = data_fetcher.fetch_multiple(symbols)
+    # Fetch data for all symbols and timeframes
+    multi_tf_data = data_fetcher.fetch_multiple_timeframes(symbols, timeframes)
 
-    if not data_dict:
-        logger.error("No data fetched for any symbols")
+    if not multi_tf_data:
+        logger.error("No data fetched for any symbols/timeframes")
         return pd.DataFrame()
-
-    logger.info(f"Successfully fetched data for {len(data_dict)} symbols")
 
     # Generate signals
     all_signals = []
 
-    for symbol, df in data_dict.items():
-        logger.info(f"Processing {symbol}...")
-
-        # Calculate indicators
-        df_with_indicators = indicator_calc.calculate_all_indicators(df)
-
-        # Validate indicators
-        if not indicator_calc.validate_indicators(df_with_indicators):
-            logger.warning(f"Indicator validation failed for {symbol}, skipping")
+    for symbol in symbols:
+        if symbol not in multi_tf_data:
             continue
 
-        # Generate signals
-        signals = signal_gen.generate_signals(
-            df_with_indicators,
-            symbol,
-            max_signals=config['targets']['max_signals_per_day']
-        )
+        for timeframe in timeframes:
+            if timeframe not in multi_tf_data[symbol]:
+                continue
 
-        if signals:
-            logger.info(f"Generated {len(signals)} signal(s) for {symbol}")
-            for signal in signals:
-                # Validate trade parameters
-                is_valid, reason = risk_mgr.validate_trade(
-                    signal.entry_price,
-                    signal.stop_loss,
-                    signal.take_profit_1,
-                    signal.take_profit_2,
-                    signal.direction
-                )
+            df = multi_tf_data[symbol][timeframe]
+            logger.info(f"Processing {symbol} {timeframe}...")
 
-                if is_valid:
-                    all_signals.append(signal.to_dict())
-                else:
-                    logger.warning(f"Invalid signal for {symbol}: {reason}")
+            # Calculate indicators
+            df_with_indicators = indicator_calc.calculate_all_indicators(df)
+
+            # Validate indicators
+            if not indicator_calc.validate_indicators(df_with_indicators):
+                logger.warning(f"Indicator validation failed for {symbol} {timeframe}, skipping")
+                continue
+
+            # Generate signals
+            signals = signal_gen.generate_signals(
+                df_with_indicators,
+                symbol,
+                max_signals=config['targets']['max_signals_per_day']
+            )
+
+            if signals:
+                logger.info(f"Generated {len(signals)} signal(s) for {symbol} {timeframe}")
+                for signal in signals:
+                    # Validate trade parameters
+                    is_valid, reason = risk_mgr.validate_trade(
+                        signal.entry_price,
+                        signal.stop_loss,
+                        signal.take_profit_1,
+                        signal.take_profit_2,
+                        signal.direction
+                    )
+
+                    if is_valid:
+                        # Add timeframe to signal
+                        signal_dict = signal.to_dict()
+                        signal_dict['timeframe'] = timeframe
+                        all_signals.append(signal_dict)
+                    else:
+                        logger.warning(f"Invalid signal for {symbol} {timeframe}: {reason}")
 
     # Convert to DataFrame
     if all_signals:
@@ -192,6 +203,7 @@ def run_backtest(config: dict, logger):
         ])
 
         output_path = './output/backtest_trades.csv'
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
         trades_df.to_csv(output_path, index=False)
         logger.info(f"\nTrade history saved to {output_path}")
 
@@ -206,22 +218,31 @@ def display_signals(signals_df: pd.DataFrame, config: dict):
 
     # Format for display
     display_df = signals_df.copy()
+
+    # Reorder columns to show timeframe right after symbol
+    if 'timeframe' in display_df.columns:
+        cols = list(display_df.columns)
+        cols.remove('timeframe')
+        symbol_idx = cols.index('symbol') if 'symbol' in cols else 0
+        cols.insert(symbol_idx + 1, 'timeframe')
+        display_df = display_df[cols]
+
     display_df['entry_price'] = display_df['entry_price'].apply(lambda x: f"${x:.2f}")
     display_df['stop_loss'] = display_df['stop_loss'].apply(lambda x: f"${x:.2f}")
     display_df['tp1'] = display_df['tp1'].apply(lambda x: f"${x:.2f}")
     display_df['tp2'] = display_df['tp2'].apply(lambda x: f"${x:.2f}")
 
     # Print table
-    print("\n" + "="*100)
-    print("DAILY TRADING SIGNALS - " + datetime.now().strftime('%Y-%m-%d'))
-    print("="*100)
+    print("\n" + "="*120)
+    print("MULTI-TIMEFRAME TRADING SIGNALS - " + datetime.now().strftime('%Y-%m-%d'))
+    print("="*120)
     print(tabulate(
         display_df,
         headers='keys',
         tablefmt='grid',
         showindex=False
     ))
-    print("="*100 + "\n")
+    print("="*120 + "\n")
 
     # Save to CSV if configured
     if config['output']['csv_output']:
