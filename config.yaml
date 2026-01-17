@@ -11,6 +11,7 @@ data_source:
 symbols:
   - "SPY"  # S&P 500 ETF
   - "QQQ"  # Nasdaq ETF
+  - "IWM"  # Russell 2000 ETF
   - "AAPL"
   - "MSFT"
   - "GOOGL"
