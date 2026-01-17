@@ -330,7 +330,8 @@ class Backtester:
 
         # If exit triggered, create trade
         if exit_price is not None:
-            bars_held = idx - position.get('entry_idx', 0)
+            entry_idx = position.get('entry_idx') or 0
+            bars_held = idx - entry_idx
             return self._create_trade_record(
                 position, exit_price, current_date, exit_reason, bars_held
             )
@@ -340,7 +341,8 @@ class Backtester:
     def _force_exit_position(self, position: Dict, final_bar, final_date, final_idx: int) -> Trade:
         """Force exit position at end of backtest."""
         exit_price = final_bar['close']
-        bars_held = final_idx - position.get('entry_idx', 0)
+        entry_idx = position.get('entry_idx') or 0
+        bars_held = final_idx - entry_idx
         return self._create_trade_record(
             position, exit_price, final_date, 'End of Backtest', bars_held
         )
