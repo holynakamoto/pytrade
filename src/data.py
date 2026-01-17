@@ -133,7 +133,7 @@ class DataFetcher:
             return df[required]
 
         except Exception as e:
-            logger.error(f"Yahoo Finance error for {symbol}: {e}")
+            logger.error("Yahoo Finance error for %s: %s", symbol, type(e).__name__)
             raise
 
     def _fetch_from_polygon(
@@ -182,7 +182,7 @@ class DataFetcher:
             return df[['open', 'high', 'low', 'close', 'volume']]
 
         except Exception as e:
-            logger.error(f"Polygon error for {symbol}: {e}")
+            logger.error("Polygon error for %s: %s", symbol, type(e).__name__)
             raise
 
     def _fetch_from_alphavantage(
@@ -236,7 +236,7 @@ class DataFetcher:
             return df[['open', 'high', 'low', 'close', 'volume']]
 
         except Exception as e:
-            logger.error(f"Alpha Vantage error for {symbol}: {e}")
+            logger.error("Alpha Vantage error for %s: %s", symbol, type(e).__name__)
             raise
 
     def fetch_multiple(

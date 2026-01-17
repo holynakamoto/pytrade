@@ -162,7 +162,7 @@ class Backtester:
                 # Check for bullish signal
                 if self._check_bullish_conditions(df, i):
                     position = self._enter_long_position(
-                        symbol, current_bar, current_idx, current_equity
+                        symbol, current_bar, current_idx, current_equity, entry_idx=i
                     )
                     if position:
                         in_position = True
@@ -170,7 +170,7 @@ class Backtester:
                 # Check for bearish signal
                 elif self._check_bearish_conditions(df, i):
                     position = self._enter_short_position(
-                        symbol, current_bar, current_idx, current_equity
+                        symbol, current_bar, current_idx, current_equity, entry_idx=i
                     )
                     if position:
                         in_position = True
@@ -191,8 +191,8 @@ class Backtester:
         # Close any open position at the end
         if in_position and position:
             final_bar = df.iloc[-1]
-            final_idx = df.index[-1]
-            exit_trade = self._force_exit_position(position, final_bar, final_idx)
+            final_idx = len(df) - 1
+            exit_trade = self._force_exit_position(position, final_bar, df.index[-1], final_idx)
             trades.append(exit_trade)
 
         return trades
@@ -209,7 +209,7 @@ class Backtester:
             return False
         return self.signal_generator._check_bearish_conditions(df, df.index[idx])
 
-    def _enter_long_position(self, symbol: str, bar, date, equity: float) -> Dict:
+    def _enter_long_position(self, symbol: str, bar, date, equity: float, entry_idx: int = None) -> Dict:
         """Enter a long position."""
         entry_price = bar['close']
         stop_loss = bar['swing_low'] if pd.notna(bar.get('swing_low')) else bar['low']
@@ -229,10 +229,11 @@ class Backtester:
             'tp1': tp1,
             'tp2': tp2,
             'position_size': position_size,
-            'partial_exit': False
+            'partial_exit': False,
+            'entry_idx': entry_idx
         }
 
-    def _enter_short_position(self, symbol: str, bar, date, equity: float) -> Dict:
+    def _enter_short_position(self, symbol: str, bar, date, equity: float, entry_idx: int = None) -> Dict:
         """Enter a short position."""
         entry_price = bar['close']
         stop_loss = bar['swing_high'] if pd.notna(bar.get('swing_high')) else bar['high']
@@ -252,7 +253,8 @@ class Backtester:
             'tp1': tp1,
             'tp2': tp2,
             'position_size': position_size,
-            'partial_exit': False
+            'partial_exit': False,
+            'entry_idx': entry_idx
         }
 
     def _check_exit_conditions(
@@ -328,17 +330,19 @@ class Backtester:
 
         # If exit triggered, create trade
         if exit_price is not None:
+            bars_held = idx - position.get('entry_idx', 0)
             return self._create_trade_record(
-                position, exit_price, current_date, exit_reason, idx
+                position, exit_price, current_date, exit_reason, bars_held
             )
 
         return None
 
-    def _force_exit_position(self, position: Dict, final_bar, final_date) -> Trade:
+    def _force_exit_position(self, position: Dict, final_bar, final_date, final_idx: int) -> Trade:
         """Force exit position at end of backtest."""
         exit_price = final_bar['close']
+        bars_held = final_idx - position.get('entry_idx', 0)
         return self._create_trade_record(
-            position, exit_price, final_date, 'End of Backtest', 0
+            position, exit_price, final_date, 'End of Backtest', bars_held
         )
 
     def _create_trade_record(

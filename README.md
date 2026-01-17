@@ -155,7 +155,7 @@ backtest:
 
 ## Project Structure
 
-```
+```text
 pytrade/
 ├── main.py                 # Main orchestration script
 ├── config.yaml             # Configuration file
@@ -187,7 +187,7 @@ Signals are displayed in a formatted table with:
 - Rationale (why the signal was generated)
 
 Example:
-```
+```text
 Symbol | Direction | Entry   | SL      | TP1     | TP2     | Rationale
 SPY    | LONG     | $450.25 | $447.50 | $453.00 | $455.75 | Uptrend | Momentum | FVG
 ```
@@ -221,7 +221,7 @@ crontab -e
 ```
 
 Add:
-```
+```text
 30 16 * * 1-5 cd /path/to/pytrade && /usr/bin/python3 main.py --mode signals
 ```
 
@@ -291,4 +291,4 @@ MIT License - See LICENSE file for details
 
 Built by Nick, retail trader in Denver
 Version 1.0 (MVP)
-Date: 2025-01-17
+Date: 2026-01-17
