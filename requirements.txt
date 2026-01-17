@@ -1,0 +1,15 @@
+# Core Dependencies
+pandas
+numpy
+pyyaml
+
+# Data Fetching
+yfinance
+requests
+
+# Backtesting & Visualization
+matplotlib
+tabulate
+
+# Progress & Logging
+tqdm

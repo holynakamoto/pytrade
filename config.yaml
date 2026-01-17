@@ -1,0 +1,79 @@
+# Daily Breakout FVG Trading System Configuration
+
+# Data Source Configuration
+data_source:
+  primary: "yahoo"  # Options: yahoo, polygon, alphavantage
+  polygon_api_key: ""  # Set via environment variable POLYGON_API_KEY
+  alphavantage_api_key: ""  # Set via environment variable ALPHAVANTAGE_API_KEY
+  cache_days: 500  # Number of historical bars to cache
+
+# Trading Universe
+symbols:
+  - "SPY"  # S&P 500 ETF
+  - "QQQ"  # Nasdaq ETF
+  - "AAPL"
+  - "MSFT"
+  - "GOOGL"
+  - "AMZN"
+  - "TSLA"
+  - "NVDA"
+  - "META"
+  - "NFLX"
+
+# Indicator Parameters
+indicators:
+  ema_short: 9
+  ema_long: 200
+  vwap_session: "daily"  # Session for VWAP calculation
+  fvg_lookback: 5  # How many bars back to look for FVG
+  swing_lookback: 5  # Bars to look back for swing high/low
+
+# Entry Filter Settings
+entry_filters:
+  require_ema200_trend: true  # Require price > EMA200 for longs
+  require_ema9_alignment: true  # Require close > EMA9 for longs
+  require_vwap_alignment: true  # Require close > VWAP for longs
+  require_internal_breakout: true  # Require high > high[1] for longs
+  require_fvg: true  # Require Fair Value Gap present
+
+# Risk Management
+risk_management:
+  risk_per_trade_pct: 1.0  # Risk 1% of account per trade
+  account_size: 10000  # Initial account size for backtesting
+  tp1_rr: 1.0  # First take profit at 1:1 risk-reward
+  tp2_rr: 2.0  # Second take profit at 1:2 risk-reward
+  tp1_exit_pct: 50  # Exit 50% at TP1
+  tp2_exit_pct: 100  # Exit remaining at TP2
+  use_ema200_hard_exit: true  # Exit if price crosses EMA200 against trade
+
+# Backtesting Configuration
+backtest:
+  start_date: "2020-01-01"
+  end_date: "2025-01-17"
+  include_commission: false  # Not modeled in MVP
+  commission_per_trade: 0  # $ per trade
+  slippage_pct: 0  # % slippage per trade
+
+# Output Settings
+output:
+  console_output: true
+  csv_output: true
+  csv_path: "./output/daily_signals.csv"
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_path: "./logs/trading_system.log"
+
+# Alert Settings (Stub for MVP)
+alerts:
+  email_enabled: false
+  email_smtp_server: ""
+  email_from: ""
+  email_to: ""
+  sms_enabled: false
+  sms_provider: ""  # twilio, etc.
+
+# Performance Metrics Targets
+targets:
+  min_sharpe_ratio: 1.0
+  min_profit_factor: 1.2
+  min_win_rate: 0.45
+  max_signals_per_day: 5
