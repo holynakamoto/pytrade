@@ -5,6 +5,7 @@ description = "Daily actionable trading system using breakouts, FVG, EMAs & VWAP
 authors = ["Nick Moore <nick.moore@pm.me>"]
 readme = "README.md"
 packages = []  # optional: add later if you create src/pytrade/
+package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.10"          # lowered from 3.14 → most people don't have 3.14 yet; adjust if you really need it
