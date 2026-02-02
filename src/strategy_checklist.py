@@ -106,7 +106,15 @@ class TradeSetup:
         - TP1: .65 (30% exit)
         - TP2: .75 (50% exit)
         - TP3: .90 (remaining 20% - 1:1 R:R)
+
+        Raises:
+            ValueError: If swing_high is not greater than swing_low
         """
+        if swing_high <= swing_low:
+            raise ValueError(
+                f"swing_high ({swing_high}) must be greater than swing_low ({swing_low})"
+            )
+
         range_size = swing_high - swing_low
 
         if self.direction == 'LONG':
@@ -534,7 +542,7 @@ class ChecklistValidator:
         hit_levels = []
 
         for tp in trade_setup.take_profits:
-            if tp.hit:
+            if tp.hit or tp.price is None:
                 continue
 
             if trade_setup.direction == 'LONG':

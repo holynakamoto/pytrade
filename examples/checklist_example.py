@@ -188,10 +188,12 @@ def example_automated_validation():
     print(checklist.print_checklist())
 
     # Show market conditions
+    ema_short_key = f"ema{config['indicators']['ema_short']}"
+    ema_long_key = f"ema{config['indicators']['ema_long']}"
     print("\nCurrent Market Conditions:")
     print(f"  Close: ${latest['close']:.2f}")
-    print(f"  EMA9: ${latest[f'ema{config[\"indicators\"][\"ema_short\"]}']:.2f}")
-    print(f"  EMA200: ${latest[f'ema{config[\"indicators\"][\"ema_long\"]}']:.2f}")
+    print(f"  EMA9: ${latest[ema_short_key]:.2f}")
+    print(f"  EMA200: ${latest[ema_long_key]:.2f}")
     print(f"  Bullish Breakout: {latest.get('bullish_breakout', False)}")
     print(f"  Bearish Breakout: {latest.get('bearish_breakout', False)}")
     print(f"  Bullish FVG: {latest.get('has_recent_bullish_fvg', False)}")

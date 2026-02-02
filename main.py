@@ -22,7 +22,7 @@ from indicators import TechnicalIndicators
 from signals import SignalGenerator
 from risk_management import RiskManager
 from backtest import Backtester
-from strategy_checklist import TradingChecklist, ChecklistValidator
+from strategy_checklist import TradingChecklist
 
 
 def setup_logging(config: dict):
@@ -223,7 +223,6 @@ def run_checklist_mode(config: dict, logger):
 
     # Initialize checklist
     checklist = TradingChecklist(config)
-    validator = ChecklistValidator(config)
 
     # Get checklist config
     checklist_config = config.get('strategy_checklist', {})
