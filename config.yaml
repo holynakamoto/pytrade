@@ -84,3 +84,40 @@ targets:
   min_profit_factor: 1.2
   min_win_rate: 0.45
   max_signals_per_day: 5
+
+# Strategy Checklist Configuration
+strategy_checklist:
+  enabled: true
+
+  # Entry level (Fibonacci retracement)
+  entry_level: 0.50  # Base entry at .50 level
+
+  # Take Profit Levels (Fibonacci-style)
+  take_profit_levels:
+    tp1:
+      level: 0.65      # .65 level
+      exit_pct: 30     # Exit 30% of position
+    tp2:
+      level: 0.75      # .75 level
+      exit_pct: 50     # Exit 50% of position
+    tp3:
+      level: 0.90      # .90 level (1:1 R:R)
+      exit_pct: 20     # Exit remaining 20%
+
+  # Required confirmations
+  require_fvg: true                    # If FVG - take it!!
+  require_internal_breakout: true      # Internal Breakout Indicator
+  require_candle_close: true           # Wait for Candle to Close
+  require_arrow_confirmation: false    # ARROW indicator (optional)
+
+  # Exit conditions
+  exit_on_ob_invalidation: true        # EXIT: If Int. OB invalidated
+
+  # Pre-market analysis reminder
+  pre_market_analysis:
+    enabled: true
+    items:
+      - "Check overnight price action"
+      - "Identify key support/resistance levels"
+      - "Review economic calendar"
+      - "Check pre-market volume"

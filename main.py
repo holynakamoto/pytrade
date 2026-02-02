@@ -22,6 +22,7 @@ from indicators import TechnicalIndicators
 from signals import SignalGenerator
 from risk_management import RiskManager
 from backtest import Backtester
+from strategy_checklist import TradingChecklist, ChecklistValidator
 
 
 def setup_logging(config: dict):
@@ -210,6 +211,113 @@ def run_backtest(config: dict, logger):
     return results
 
 
+def run_checklist_mode(config: dict, logger):
+    """
+    Run interactive checklist mode for trade setup validation.
+
+    Args:
+        config: Configuration dictionary
+        logger: Logger instance
+    """
+    logger.info("Starting Trading Strategy Checklist Mode...")
+
+    # Initialize checklist
+    checklist = TradingChecklist(config)
+    validator = ChecklistValidator(config)
+
+    # Get checklist config
+    checklist_config = config.get('strategy_checklist', {})
+
+    print("\n" + "=" * 60)
+    print("TRADING STRATEGY CHECKLIST")
+    print("=" * 60)
+
+    # Show pre-market analysis reminder
+    if checklist_config.get('pre_market_analysis', {}).get('enabled', True):
+        print("\nPRE-MARKET ANALYSIS CHECKLIST:")
+        pre_market_items = checklist_config.get('pre_market_analysis', {}).get('items', [])
+        for item in pre_market_items:
+            print(f"  [ ] {item}")
+        print()
+
+    # Get trade setup from user
+    print("\n--- NEW TRADE SETUP ---")
+    symbol = input("Enter symbol (e.g., SPY): ").upper().strip()
+    if not symbol:
+        print("No symbol entered. Exiting.")
+        return
+
+    direction = input("Enter direction (LONG/SHORT): ").upper().strip()
+    if direction not in ['LONG', 'SHORT']:
+        print("Invalid direction. Must be LONG or SHORT.")
+        return
+
+    try:
+        key_level = float(input("Enter key level price: $"))
+    except ValueError:
+        print("Invalid price. Exiting.")
+        return
+
+    # Initialize trade setup
+    setup = checklist.start_new_trade(symbol, direction, key_level)
+
+    # Mark pre-market and key level as done
+    checklist.check_item('pre_market_analysis', True, "Pre-market analysis completed")
+    checklist.check_item('key_level', True, f"Key level: ${key_level:.2f}")
+
+    # Get swing levels for TP calculation
+    try:
+        swing_high = float(input("Enter swing high: $"))
+        swing_low = float(input("Enter swing low: $"))
+    except ValueError:
+        print("Invalid swing levels. Using defaults.")
+        swing_high = key_level * 1.05
+        swing_low = key_level * 0.95
+
+    # Calculate trade levels
+    checklist.calculate_trade_levels(swing_high, swing_low)
+
+    # Check conditions
+    print("\n--- CONDITION CHECKS ---")
+
+    # Internal Breakout
+    ib_check = input("Internal Breakout confirmed? (y/n): ").lower().strip()
+    checklist.check_item('internal_breakout', ib_check == 'y',
+                        "Confirmed" if ib_check == 'y' else "Not confirmed")
+
+    # Candle Close
+    candle_check = input("Candle closed? (y/n): ").lower().strip()
+    checklist.check_item('candle_close', candle_check == 'y',
+                        "Candle closed" if candle_check == 'y' else "Waiting for close")
+
+    # FVG Present
+    fvg_check = input("FVG (Fair Value Gap) present? (y/n): ").lower().strip()
+    checklist.check_item('fvg_present', fvg_check == 'y',
+                        "FVG PRESENT - TAKE IT!" if fvg_check == 'y' else "No FVG")
+
+    # ARROW Indicator (optional)
+    arrow_check = input("ARROW indicator present? (y/n/skip): ").lower().strip()
+    if arrow_check == 'skip':
+        checklist.skip_item('arrow_indicator', "Not applicable")
+    else:
+        checklist.check_item('arrow_indicator', arrow_check == 'y',
+                           "Arrow + candle close + FVG" if arrow_check == 'y' else "No arrow")
+
+    # Print final checklist status
+    print(checklist.print_checklist())
+
+    # Check if ready to trade
+    ready, missing = checklist.is_ready_to_trade()
+    if ready:
+        print("\n*** TRADE SETUP VALIDATED - READY TO EXECUTE ***\n")
+        logger.info(f"Trade validated: {symbol} {direction} @ ${setup.entry_price:.2f}")
+    else:
+        print(f"\n*** NOT READY - Missing: {', '.join(missing)} ***\n")
+        logger.warning(f"Trade not validated for {symbol}: missing {missing}")
+
+    return checklist
+
+
 def display_signals(signals_df: pd.DataFrame, config: dict):
     """Display signals in a formatted table."""
     if signals_df.empty:
@@ -268,15 +376,18 @@ Examples:
 
   Run both:
     python main.py --mode both
+
+  Interactive trade checklist:
+    python main.py --mode checklist
         """
     )
 
     parser.add_argument(
         '--mode',
         type=str,
-        choices=['signals', 'backtest', 'both'],
+        choices=['signals', 'backtest', 'both', 'checklist'],
         default='signals',
-        help='Operation mode: signals (daily), backtest, or both'
+        help='Operation mode: signals (daily), backtest, both, or checklist'
     )
 
     parser.add_argument(
@@ -307,13 +418,19 @@ Examples:
 
     # Execute based on mode
     try:
-        if args.mode in ['signals', 'both']:
+        if args.mode == 'checklist':
+            run_checklist_mode(config, logger)
+
+        elif args.mode in ['signals', 'both']:
             signals_df = generate_daily_signals(config, logger)
 
             if config['output']['console_output']:
                 display_signals(signals_df, config)
 
-        if args.mode in ['backtest', 'both']:
+            if args.mode == 'both':
+                run_backtest(config, logger)
+
+        elif args.mode == 'backtest':
             run_backtest(config, logger)
 
         logger.info("Execution completed successfully")
